@@ -60,7 +60,7 @@ static BOOL WLog_UdpAppender_Open(wLog* log, wLogAppender* appender)
 	colonPos = strchr(udpAppender->host, ':');
 	if (!colonPos)
 		return FALSE;
-	addrLen = colonPos - udpAppender->host;
+	addrLen = (int) (colonPos - udpAppender->host);
 	memcpy(addressString, udpAppender->host, addrLen);
 	addressString[addrLen] = '\0';
 
@@ -79,7 +79,7 @@ static BOOL WLog_UdpAppender_Open(wLog* log, wLogAppender* appender)
 	}
 
 	memcpy(&udpAppender->targetAddr, result->ai_addr, result->ai_addrlen);
-	udpAppender->targetAddrLen = result->ai_addrlen;
+	udpAppender->targetAddrLen = (int) result->ai_addrlen;
 
 	return TRUE;
 }
@@ -198,9 +198,10 @@ wLogAppender* WLog_UdpAppender_New(wLog* log)
 	{
 		appender->host = (LPSTR) malloc(nSize);
 		if (!appender->host)
-			goto error_host_alloc;
+			goto error_open;
 
-		GetEnvironmentVariableA(name, appender->host, nSize);
+		if (GetEnvironmentVariableA(name, appender->host, nSize) != nSize - 1)
+			goto error_open;
 
 		if (!WLog_UdpAppender_Open(log, (wLogAppender *)appender))
 			goto error_open;
@@ -209,14 +210,13 @@ wLogAppender* WLog_UdpAppender_New(wLog* log)
 	{
 		appender->host = _strdup("127.0.0.1:20000");
 		if (!appender->host)
-			goto error_host_alloc;
+			goto error_open;
 	}
 
 	return (wLogAppender*)appender;
 
 error_open:
 	free(appender->host);
-error_host_alloc:
 	closesocket(appender->sock);
 error_sock:
 	free(appender);

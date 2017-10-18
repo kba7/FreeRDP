@@ -84,6 +84,7 @@ set(WINPR_CORE synch locale library file comm pipe interlocked security
 
 foreach(DIR ${WINPR_CORE})
 	add_subdirectory(${DIR})
+	source_group("${DIR}" REGULAR_EXPRESSION "${DIR}/.*\\.[ch]")
 endforeach()
 
 set(WINPR_LEVEL2 winsock sspi winhttp asn1 sspicli crt bcrypt rpc credui
@@ -91,6 +92,7 @@ set(WINPR_LEVEL2 winsock sspi winhttp asn1 sspicli crt bcrypt rpc credui
 
 foreach(DIR ${WINPR_LEVEL2})
 	add_subdirectory(${DIR})
+	source_group("${DIR}" REGULAR_EXPRESSION "${DIR}/.*\\.[ch]")
 endforeach()
 
 set(MODULE_NAME winpr)
@@ -118,6 +120,7 @@ endif()
 
 add_library(${MODULE_NAME} ${WINPR_SRCS})
 set_target_properties(${MODULE_NAME} PROPERTIES LINKER_LANGUAGE C)
+set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME ${MODULE_NAME}${WINPR_API_VERSION})
 if (WITH_LIBRARY_VERSIONING)
     set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${WINPR_VERSION} SOVERSION ${WINPR_API_VERSION})
 endif()
@@ -130,6 +133,7 @@ target_link_libraries(${MODULE_NAME} ${PRIVATE_KEYWORD} ${WINPR_LIBS})
 endif(WIN32)
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries EXPORT WinPRTargets)
 if (WITH_DEBUG_SYMBOLS AND MSVC AND BUILD_SHARED_LIBS)
-    install(FILES ${CMAKE_PDB_BINARY_DIR}/${MODULE_NAME}.pdb DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT symbols)
+    get_target_property(OUTPUT_FILENAME ${MODULE_NAME} OUTPUT_NAME)
+    install(FILES ${CMAKE_PDB_BINARY_DIR}/${OUTPUT_FILENAME}.pdb DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT symbols)
 endif()
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "WinPR/libwinpr")

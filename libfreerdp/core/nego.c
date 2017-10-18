@@ -143,20 +143,27 @@ BOOL nego_connect(rdpNego* nego)
 		}
 	}
 
-	do
+	if (!nego->NegotiateSecurityLayer)
 	{
-		WLog_DBG(TAG, "state: %s", NEGO_STATE_STRINGS[nego->state]);
-
-		nego_send(nego);
-
-		if (nego->state == NEGO_STATE_FAIL)
-		{
-			WLog_ERR(TAG, "Protocol Security Negotiation Failure");
-			nego->state = NEGO_STATE_FINAL;
-			return FALSE;
-		}
+		nego->state = NEGO_STATE_FINAL;
 	}
-	while (nego->state != NEGO_STATE_FINAL);
+	else
+	{
+		do
+		{
+			WLog_DBG(TAG, "state: %s", NEGO_STATE_STRINGS[nego->state]);
+
+			nego_send(nego);
+
+			if (nego->state == NEGO_STATE_FAIL)
+			{
+				WLog_ERR(TAG, "Protocol Security Negotiation Failure");
+				nego->state = NEGO_STATE_FINAL;
+				return FALSE;
+			}
+		}
+		while (nego->state != NEGO_STATE_FINAL);
+	}
 
 	WLog_DBG(TAG, "Negotiated %s security", PROTOCOL_SECURITY_STRINGS[nego->SelectedProtocol]);
 
@@ -568,7 +575,8 @@ int nego_recv(rdpTransport* transport, wStream* s, void* extra)
 	UINT16 length;
 	rdpNego* nego = (rdpNego*) extra;
 
-	length = tpkt_read_header(s);
+	if (!tpkt_read_header(s, &length))
+		return -1;
 
 	if (length == 0)
 		return -1;
@@ -587,7 +595,7 @@ int nego_recv(rdpTransport* transport, wStream* s, void* extra)
 			case TYPE_RDP_NEG_RSP:
 				nego_process_negotiation_response(nego, s);
 
-				WLog_DBG(TAG, "selected_protocol: %d", nego->SelectedProtocol);
+				WLog_DBG(TAG, "selected_protocol: %"PRIu32"", nego->SelectedProtocol);
 
 				/* enhanced security selected ? */
 
@@ -732,8 +740,10 @@ BOOL nego_read_request(rdpNego* nego, wStream* s)
 {
 	BYTE li;
 	BYTE type;
+	UINT16 length;
 
-	tpkt_read_header(s);
+	if (!tpkt_read_header(s, &length))
+		return FALSE;
 
 	if (!tpdu_read_connection_request(s, &li))
 		return FALSE;
@@ -758,7 +768,7 @@ BOOL nego_read_request(rdpNego* nego, wStream* s)
 
 		if (type != TYPE_RDP_NEG_REQ)
 		{
-			WLog_ERR(TAG, "Incorrect negotiation request type %d", type);
+			WLog_ERR(TAG, "Incorrect negotiation request type %"PRIu8"", type);
 			return FALSE;
 		}
 
@@ -848,7 +858,7 @@ BOOL nego_send_negotiation_request(rdpNego* nego)
 		length += cookie_length + 19;
 	}
 
-	WLog_DBG(TAG, "RequestedProtocols: %d", nego->RequestedProtocols);
+	WLog_DBG(TAG, "RequestedProtocols: %"PRIu32"", nego->RequestedProtocols);
 
 	if ((nego->RequestedProtocols > PROTOCOL_RDP) || (nego->sendNegoData))
 	{
@@ -898,7 +908,7 @@ void nego_process_negotiation_request(rdpNego* nego, wStream* s)
 	Stream_Read_UINT16(s, length);
 	Stream_Read_UINT32(s, nego->RequestedProtocols);
 
-	WLog_DBG(TAG, "RDP_NEG_REQ: RequestedProtocol: 0x%04X", nego->RequestedProtocols);
+	WLog_DBG(TAG, "RDP_NEG_REQ: RequestedProtocol: 0x%08"PRIX32"", nego->RequestedProtocols);
 
 	nego->state = NEGO_STATE_FINAL;
 }
@@ -972,7 +982,7 @@ void nego_process_negotiation_failure(rdpNego* nego, wStream* s)
 			break;
 
 		default:
-			WLog_ERR(TAG, "Error: Unknown protocol security error %d", failureCode);
+			WLog_ERR(TAG, "Error: Unknown protocol security error %"PRIu32"", failureCode);
 			break;
 	}
 

@@ -115,7 +115,6 @@ WINPR_API HRESULT PathCchStripPrefixW(PWSTR pszPath, size_t cchPath);
 WINPR_API HRESULT PathCchRemoveFileSpecA(PSTR pszPath, size_t cchPath);
 WINPR_API HRESULT PathCchRemoveFileSpecW(PWSTR pszPath, size_t cchPath);
 
-
 #ifdef UNICODE
 #define PathCchAddBackslash		PathCchAddBackslashW
 #define PathCchRemoveBackslash		PathCchRemoveBackslashW
@@ -287,23 +286,30 @@ WINPR_API char* GetCombinedPath(const char* basePath, const char* subPath);
 
 WINPR_API BOOL PathMakePathA(LPCSTR path, LPSECURITY_ATTRIBUTES lpAttributes);
 
-#ifndef WIN32
+#if !defined(_WIN32) || defined(_UWP)
+
 WINPR_API BOOL PathFileExistsA(LPCSTR pszPath);
 WINPR_API BOOL PathFileExistsW(LPCWSTR pszPath);
+
+WINPR_API BOOL PathIsDirectoryEmptyA(LPCSTR pszPath);
+WINPR_API BOOL PathIsDirectoryEmptyW(LPCWSTR pszPath);
+
+#ifdef UNICODE
+#define PathFileExists	PathFileExistsW
+#define PathIsDirectoryEmpty	PathIsDirectoryEmptyW
+#else
+#define PathFileExists	PathFileExistsA
+#define PathIsDirectoryEmpty	PathIsDirectoryEmptyA
+#endif
+
 #endif
 
 #ifdef __cplusplus
 }
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <Shlwapi.h>
-#else
-#ifdef UNICODE
-#define PathFileExists	PathFileExistsW
-#else
-#define PathFileExists	PathFileExistsA
-#endif
 #endif
 
 #endif /* WINPR_PATH_H */

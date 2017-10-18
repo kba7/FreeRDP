@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <winpr/wtypes.h>
 #include <winpr/crt.h>
 
 #include "registry_reg.h"
@@ -76,10 +77,10 @@ static char* REG_DATA_TYPE_STRINGS[] =
 
 static void reg_load_start(Reg* reg)
 {
-	long int file_size;
-	fseek(reg->fp, 0, SEEK_END);
-	file_size = ftell(reg->fp);
-	fseek(reg->fp, 0, SEEK_SET);
+	INT64 file_size;
+	_fseeki64(reg->fp, 0, SEEK_END);
+	file_size = _ftelli64(reg->fp);
+	_fseeki64(reg->fp, 0, SEEK_SET);
 	reg->line = NULL;
 	reg->next_line = NULL;
 	reg->buffer = NULL;
@@ -444,7 +445,7 @@ void reg_print_value(Reg* reg, RegVal* value)
 
 	if (value->type == REG_DWORD)
 	{
-		WLog_INFO(TAG, "dword:%08X", (int) value->data.dword);
+		WLog_INFO(TAG, "dword:%08"PRIX32"", value->data.dword);
 	}
 	else if (value->type == REG_SZ)
 	{

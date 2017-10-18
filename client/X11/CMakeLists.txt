@@ -56,17 +56,18 @@ set(${MODULE_PREFIX}_SRCS
 if(WITH_CLIENT_INTERFACE)
 	if(CLIENT_INTERFACE_SHARED)
 		add_library(${MODULE_NAME} SHARED ${${MODULE_PREFIX}_SRCS})
+		if (WITH_LIBRARY_VERSIONING)
+			set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${FREERDP_VERSION} SOVERSION ${FREERDP_API_VERSION})
+		endif()
 	else()
 		add_library(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
 	endif()
-  if (WITH_LIBRARY_VERSIONING)
-	  set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${FREERDP_VERSION} SOVERSION ${FREERDP_API_VERSION})
-  endif()
   
 else()
-	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} cli/xfreerdp.c cli/xfreerdp.h)
+	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} cli/xfreerdp.c xfreerdp.h)
 	add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
 	set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "xfreerdp")
+	include_directories(..)
 endif()
 
 set(${MODULE_PREFIX}_LIBS
@@ -92,26 +93,25 @@ if(WITH_MANPAGES)
 
 		add_custom_command(OUTPUT xfreerdp.1
 					COMMAND generate_argument_docbook
-					COMMAND ${CMAKE_COMMAND} -E copy 
+					COMMAND ${CMAKE_COMMAND} -E copy
 						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-channels.1.xml ${CMAKE_CURRENT_BINARY_DIR}
-					COMMAND ${CMAKE_COMMAND} -E copy 
+					COMMAND ${CMAKE_COMMAND} -E copy
 						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-examples.1.xml ${CMAKE_CURRENT_BINARY_DIR}
-						COMMAND ${XSLTPROC_EXECUTABLE} ${DOCBOOKXSL_DIR}/manpages/docbook.xsl  xfreerdp.1.xml
+					COMMAND ${CMAKE_COMMAND} -E copy
+						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-envvar.1.xml ${CMAKE_CURRENT_BINARY_DIR}
+					COMMAND ${XSLTPROC_EXECUTABLE} ${DOCBOOKXSL_DIR}/manpages/docbook.xsl xfreerdp.1.xml
 					WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 					DEPENDS 
 						${CMAKE_CURRENT_BINARY_DIR}/xfreerdp.1.xml 
 						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-examples.1.xml 
 						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-channels.1.xml 
+						${CMAKE_CURRENT_SOURCE_DIR}/xfreerdp-envvar.1.xml
 						generate_argument_docbook)
 
 		add_custom_target(xfreerdp.manpage ALL
 			DEPENDS xfreerdp.1)
 
-		if(OPENBSD)
-		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xfreerdp.1 DESTINATION man/man1)
-		else()
-		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xfreerdp.1 DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/man/man1)
-		endif()
+		install_freerdp_man(${CMAKE_CURRENT_BINARY_DIR}/xfreerdp.1 1)
 	else()
 		message(WARNING "WITH_MANPAGES was set, but xsltproc was not found. man-pages will not be installed")
 	endif()
@@ -202,7 +202,10 @@ endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/resources)
 
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} freerdp-client)
+set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} freerdp-client freerdp m)
+if (NOT APPLE)
+	list(APPEND ${MODULE_PREFIX}_LIBS rt)
+endif()
 target_link_libraries(${MODULE_NAME} ${PRIVATE_KEYWORD} ${${MODULE_PREFIX}_LIBS})
 
 if(WITH_IPP)

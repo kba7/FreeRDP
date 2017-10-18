@@ -39,7 +39,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/)
 # Check for cmake compatibility (enable/disable features)
 include(CheckCmakeCompat)
 include(FindFeature)
-include(AutoVersioning)
 include(ConfigOptions)
 include(ComplexLibrary)
 include(FeatureSummary)
@@ -58,9 +57,11 @@ set(WINPR_API_VERSION "${WINPR_VERSION_MAJOR}")
 if(NOT IOS)
 	check_include_files(stdbool.h WINPR_HAVE_STDBOOL_H)
 	check_include_files(stdint.h WINPR_HAVE_STDINT_H)
+	check_include_files(inttypes.h WINPR_HAVE_INTTYPES_H)
 else(NOT IOS)
 	set(WINPR_HAVE_STDBOOL_H 1)
 	set(WINPR_HAVE_STDINT_H 1)
+	set(WINPR_HAVE_INTTYPES_H 1)
 endif(NOT IOS)
 
 if(FREERDP_BUILD)
@@ -70,7 +71,7 @@ if(FREERDP_BUILD)
 else()
 	set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 
-	if(NOT IOS AND NOT ANDROID)
+	if(NOT IOS)
 		find_package(Threads REQUIRED)
 	endif()
 
@@ -99,7 +100,17 @@ else()
 	endif()
 
 	if(NOT WIN32)
-		check_library_exists(pthread pthread_mutex_timedlock "" HAVE_PTHREAD_MUTEX_TIMEDLOCK)
+		CHECK_SYMBOL_EXISTS(pthread_mutex_timedlock pthread.h HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL)
+		if (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL)
+			CHECK_LIBRARY_EXISTS(pthread pthread_mutex_timedlock "" HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB)
+		endif (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL)
+		if (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB)
+			CHECK_LIBRARY_EXISTS(pthreads pthread_mutex_timedlock "" HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIBS)
+		endif (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB)
+
+		if (HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIBS)
+			set(HAVE_PTHREAD_MUTEX_TIMEDLOCK ON)
+		endif (HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIBS)
 	endif()
 
 	set(OPENSSL_FEATURE_TYPE "OPTIONAL")
@@ -149,6 +160,11 @@ endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWINPR_EXPORTS")
 
+# Enable 64bit file support on linux.
+if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
+	add_definitions("-D_FILE_OFFSET_BITS=64")
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
@@ -156,7 +172,7 @@ add_subdirectory(include)
 
 add_subdirectory(libwinpr)
 
-if(NOT ANDROID AND NOT IOS)
+if(NOT ANDROID AND NOT IOS AND NOT UWP)
 	add_subdirectory(tools)
 endif()
 
@@ -164,6 +180,7 @@ if(BUILD_TESTING)
 	add_subdirectory(test)
 endif()
 
+install_freerdp_man(wlog.7 7)
 # Exporting
 
 if(${CMAKE_VERSION} VERSION_GREATER "2.8.10")

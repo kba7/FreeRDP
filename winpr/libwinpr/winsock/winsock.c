@@ -234,7 +234,7 @@
 
 #if (_WIN32_WINNT < 0x0600)
 
-PCSTR inet_ntop(INT Family, PVOID pAddr, PSTR pStringBuf, size_t StringBufSize)
+PCSTR winpr_inet_ntop(INT Family, PVOID pAddr, PSTR pStringBuf, size_t StringBufSize)
 {
 	if (Family == AF_INET)
 	{
@@ -260,6 +260,29 @@ PCSTR inet_ntop(INT Family, PVOID pAddr, PSTR pStringBuf, size_t StringBufSize)
 	}
 
 	return NULL;
+}
+
+INT winpr_inet_pton(INT Family, PCSTR pszAddrString, PVOID pAddrBuf)
+{
+	SOCKADDR_STORAGE addr;
+	int addr_len = sizeof(addr);
+
+	if ((Family != AF_INET) && (Family != AF_INET6))
+		return -1;
+
+	if (WSAStringToAddressA((char*) pszAddrString, Family, NULL, (struct sockaddr*) &addr, &addr_len) != 0)
+		return 0;
+
+	if (Family == AF_INET)
+	{
+		memcpy(pAddrBuf, &((struct sockaddr_in*) &addr)->sin_addr, sizeof(struct in_addr));
+	}
+	else if (Family == AF_INET6)
+	{
+		memcpy(pAddrBuf, &((struct sockaddr_in6*) &addr)->sin6_addr, sizeof(struct in6_addr));
+	}
+
+	return 1;
 }
 
 #endif /* (_WIN32_WINNT < 0x0600) */
@@ -900,7 +923,7 @@ int WSAIoctl(SOCKET s, DWORD dwIoControlCode, LPVOID lpvInBuffer,
 
 next_ifreq:
 
-#if !defined(__linux__) && !defined(__sun__)
+#if !defined(__linux__) && !defined(__sun__) && !defined(__CYGWIN__)
 		ifreq_len = IFNAMSIZ + ifreq->ifr_addr.sa_len;
 #else
 		ifreq_len = sizeof(*ifreq);

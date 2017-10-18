@@ -1,4 +1,4 @@
-
+#include <winpr/wtypes.h>
 #include <winpr/crt.h>
 #include <winpr/path.h>
 #include <winpr/print.h>
@@ -13,8 +13,8 @@ static void *read_image(const char *src, size_t *size)
 {
 	int success = 0;
 	void *a = NULL;
-	long src_size;
-	FILE *fsrc = fopen(src, "r");
+	INT64 src_size;
+	FILE *fsrc = fopen(src, "rb");
 
 	if (!fsrc)
 	{
@@ -22,15 +22,15 @@ static void *read_image(const char *src, size_t *size)
 		goto cleanup;
 	}
 
-	if (fseek(fsrc, 0, SEEK_END))
+	if (_fseeki64(fsrc, 0, SEEK_END))
 	{
 		fprintf(stderr, "Failed to seek to file end\n");
 		goto cleanup;
 	}
 
-	src_size = ftell(fsrc);
+	src_size = _ftelli64(fsrc);
 
-	if (fseek(fsrc, 0, SEEK_SET))
+	if (_fseeki64(fsrc, 0, SEEK_SET))
 	{
 		fprintf(stderr, "Failed to seek to SEEK_SET\n");
 		goto cleanup;
@@ -40,13 +40,13 @@ static void *read_image(const char *src, size_t *size)
 
 	if (!a)
 	{
-		fprintf(stderr, "Failed malloc %zd bytes\n", src_size);
+		fprintf(stderr, "Failed malloc %ld bytes\n", src_size);
 		goto cleanup;
 	}
 
 	if (fread(a, sizeof(char), src_size, fsrc) != src_size)
 	{
-		fprintf(stderr, "Failed read %zd bytes\n", src_size);
+		fprintf(stderr, "Failed read %ld bytes\n", src_size);
 		goto cleanup;
 	}
 

@@ -21,6 +21,7 @@
 #include "config.h"
 #endif
 
+#include <winpr/wtypes.h>
 #include <winpr/crt.h>
 #include <winpr/crypto.h>
 #include <winpr/print.h>
@@ -77,7 +78,6 @@ int freerdp_assistance_crypt_derive_key_sha1(BYTE* hash, int hashLength, BYTE* k
 	BYTE* buffer;
 	BYTE pad1[64];
 	BYTE pad2[64];
-	WINPR_SHA1_CTX hashCtx;
 
 	memset(pad1, 0x36, 64);
 	memset(pad2, 0x5C, 64);
@@ -88,23 +88,15 @@ int freerdp_assistance_crypt_derive_key_sha1(BYTE* hash, int hashLength, BYTE* k
 		pad2[i] ^= hash[i];
 	}
 
-	buffer = (BYTE*) calloc(1, hashLength * 2);
+	buffer = (BYTE*) calloc(hashLength, 2);
 
 	if (!buffer)
 		goto fail;
 
-	if (!winpr_SHA1_Init(&hashCtx))
-		goto fail;
-	if (!winpr_SHA1_Update(&hashCtx, pad1, 64))
-		goto fail;
-	if (!winpr_SHA1_Final(&hashCtx, buffer, hashLength))
+	if (!winpr_Digest(WINPR_MD_SHA1, pad1, 64, buffer, hashLength))
 		goto fail;
 
-	if (!winpr_SHA1_Init(&hashCtx))
-		goto fail;
-	if (!winpr_SHA1_Update(&hashCtx, pad2, 64))
-		goto fail;
-	if (!winpr_SHA1_Final(&hashCtx, &buffer[hashLength], hashLength))
+	if (!winpr_Digest(WINPR_MD_SHA1, pad2, 64, &buffer[hashLength], hashLength))
 		goto fail;
 
 	CopyMemory(key, buffer, keyLength);
@@ -140,7 +132,7 @@ int freerdp_assistance_parse_address_list(rdpAssistanceFile* file, char* list)
 			count++;
 	}
 
-	tokens = (char**) malloc(sizeof(char*) * count);
+	tokens = (char**) calloc(count, sizeof(char*));
 	if (!tokens)
 	{
 		free(str);
@@ -168,8 +160,6 @@ int freerdp_assistance_parse_address_list(rdpAssistanceFile* file, char* list)
 
 	for (i = 0; i < count; i++)
 	{
-		length = strlen(tokens[i]);
-
 		p = tokens[i];
 
 		q = strchr(p, ':');
@@ -250,7 +240,7 @@ int freerdp_assistance_parse_connection_string1(rdpAssistanceFile* file)
 	int count;
 	int length;
 	char* tokens[8];
-	int ret;
+	int ret = -1;
 
 	/**
 	 * <ProtocolVersion>,<protocolType>,<machineAddressList>,<assistantAccountPwd>,
@@ -272,7 +262,7 @@ int freerdp_assistance_parse_connection_string1(rdpAssistanceFile* file)
 	}
 
 	if (count != 8)
-		return -1;
+		goto error;
 
 	count = 0;
 	tokens[count++] = str;
@@ -287,32 +277,33 @@ int freerdp_assistance_parse_connection_string1(rdpAssistanceFile* file)
 	}
 
 	if (strcmp(tokens[0], "65538") != 0)
-		return -1;
+		goto error;
 
 	if (strcmp(tokens[1], "1") != 0)
-		return -1;
+		goto error;
 
 	if (strcmp(tokens[3], "*") != 0)
-		return -1;
+		goto error;
 
 	if (strcmp(tokens[5], "*") != 0)
-		return -1;
+		goto error;
 
 	if (strcmp(tokens[6], "*") != 0)
-		return -1;
+		goto error;
 
 	file->RASessionId = _strdup(tokens[4]);
 
 	if (!file->RASessionId)
-		return -1;
+		goto error;
 
 	file->RASpecificParams = _strdup(tokens[7]);
 
 	if (!file->RASpecificParams)
-		return -1;
+		goto error;
 
 	ret = freerdp_assistance_parse_address_list(file, tokens[2]);
 
+error:
 	free(str);
 
 	if (ret != 1)
@@ -549,7 +540,6 @@ BYTE* freerdp_assistance_encrypt_pass_stub(const char* password, const char* pas
 {
 	BOOL rc;
 	int status;
-	WINPR_MD5_CTX md5Ctx;
 	int cbPasswordW;
 	int cbPassStubW;
 	int EncryptedSize;
@@ -567,17 +557,7 @@ BYTE* freerdp_assistance_encrypt_pass_stub(const char* password, const char* pas
 
 	cbPasswordW = (status - 1) * 2;
 
-	if (!winpr_MD5_Init(&md5Ctx))
-	{
-		free (PasswordW);
-		return NULL;
-	}
-	if (!winpr_MD5_Update(&md5Ctx, (BYTE*)PasswordW, cbPasswordW))
-	{
-		free (PasswordW);
-		return NULL;
-	}
-	if (!winpr_MD5_Final(&md5Ctx, (BYTE*) PasswordHash, sizeof(PasswordHash)))
+	if (!winpr_Digest(WINPR_MD_MD5, (BYTE*)PasswordW, cbPasswordW, (BYTE*) PasswordHash, sizeof(PasswordHash)))
 	{
 		free (PasswordW);
 		return NULL;
@@ -664,7 +644,6 @@ BYTE* freerdp_assistance_encrypt_pass_stub(const char* password, const char* pas
 int freerdp_assistance_decrypt2(rdpAssistanceFile* file, const char* password)
 {
 	int status;
-	WINPR_SHA1_CTX shaCtx;
 	int cbPasswordW;
 	int cchOutW = 0;
 	WCHAR* pbOutW = NULL;
@@ -683,9 +662,7 @@ int freerdp_assistance_decrypt2(rdpAssistanceFile* file, const char* password)
 
 	cbPasswordW = (status - 1) * 2;
 
-	if (!winpr_SHA1_Init(&shaCtx) ||
-	    !winpr_SHA1_Update(&shaCtx, (BYTE*)PasswordW, cbPasswordW) ||
-	    !winpr_SHA1_Final(&shaCtx, PasswordHash, sizeof(PasswordHash)))
+	if (!winpr_Digest(WINPR_MD_SHA1, (BYTE*)PasswordW, cbPasswordW, PasswordHash, sizeof(PasswordHash)))
 	{
 		free (PasswordW);
 		return -1;
@@ -836,7 +813,7 @@ char* freerdp_assistance_bin_to_hex_string(const BYTE* data, int size)
 	int ln, hn;
 	char bin2hex[] = "0123456789ABCDEF";
 
-	p = (char*) malloc((size + 1) * 2);
+	p = (char*) calloc((size + 1), 2);
 	if (!p)
 		return NULL;
 
@@ -1089,16 +1066,16 @@ int freerdp_assistance_parse_file(rdpAssistanceFile* file, const char* name)
 	BYTE* buffer;
 	FILE* fp = NULL;
 	size_t readSize;
-	long int fileSize;
+	INT64 fileSize;
 
 	fp = fopen(name, "r");
 
 	if (!fp)
 		return -1;
 
-	fseek(fp, 0, SEEK_END);
-	fileSize = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	_fseeki64(fp, 0, SEEK_END);
+	fileSize = _ftelli64(fp);
+	_fseeki64(fp, 0, SEEK_SET);
 
 	if (fileSize < 1)
 	{

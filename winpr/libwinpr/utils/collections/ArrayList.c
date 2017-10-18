@@ -207,7 +207,7 @@ void ArrayList_Clear(wArrayList *arrayList)
 
 BOOL ArrayList_Contains(wArrayList *arrayList, void *obj)
 {
-	DWORD index;
+	int index;
 	BOOL rc = FALSE;
 
 	if (arrayList->synchronized)
@@ -456,7 +456,7 @@ wArrayList *ArrayList_New(BOOL synchronized)
 	arrayList->capacity = 32;
 	arrayList->growthFactor = 2;
 	arrayList->object.fnObjectEquals = ArrayList_DefaultCompare;
-	arrayList->array = (void **)malloc(arrayList->capacity * sizeof(void *));
+	arrayList->array = (void **)calloc(arrayList->capacity, sizeof(void *));
 
 	if (!arrayList->array)
 		goto out_free;

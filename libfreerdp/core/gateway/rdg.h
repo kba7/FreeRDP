@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef FREERDP_CORE_RDG_H
-#define FREERDP_CORE_RDG_H
+#ifndef FREERDP_LIB_CORE_GATEWAY_RDG_H
+#define FREERDP_LIB_CORE_GATEWAY_RDG_H
 
 
 #include <winpr/wtypes.h>
@@ -28,6 +28,7 @@
 
 #include <freerdp/log.h>
 #include <freerdp/utils/ringbuffer.h>
+#include <freerdp/api.h>
 
 #include <freerdp/freerdp.h>
 #include <freerdp/crypto/tls.h>
@@ -142,12 +143,14 @@ struct rdp_rdg
 };
 
 
-rdpRdg* rdg_new(rdpTransport* transport);
-void rdg_free(rdpRdg* rdg);
+FREERDP_LOCAL rdpRdg* rdg_new(rdpTransport* transport);
+FREERDP_LOCAL void rdg_free(rdpRdg* rdg);
 
-BOOL rdg_connect(rdpRdg* rdg, const char* hostname, UINT16 port, int timeout);
-DWORD rdg_get_event_handles(rdpRdg* rdg, HANDLE* events, DWORD count);
-BOOL rdg_check_event_handles(rdpRdg* rdg);
+FREERDP_LOCAL BOOL rdg_connect(rdpRdg* rdg, const char* hostname, UINT16 port,
+                               int timeout);
+FREERDP_LOCAL DWORD rdg_get_event_handles(rdpRdg* rdg, HANDLE* events,
+        DWORD count);
+FREERDP_LOCAL BOOL rdg_check_event_handles(rdpRdg* rdg);
 
 
-#endif /* FREERDP_CORE_RDG_H */
+#endif /* FREERDP_LIB_CORE_GATEWAY_RDG_H */

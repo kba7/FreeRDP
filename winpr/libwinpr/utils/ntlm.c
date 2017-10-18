@@ -34,20 +34,22 @@
 
 BYTE* NTOWFv1W(LPWSTR Password, UINT32 PasswordLength, BYTE* NtHash)
 {
-	WINPR_MD4_CTX md4;
+	BOOL allocate = !NtHash;
 
 	if (!Password)
 		return NULL;
 
-	if (!NtHash && !(NtHash = malloc(16)))
+	if (!NtHash && !(NtHash = malloc(WINPR_MD4_DIGEST_LENGTH)))
 		return NULL;
 
-	if (!winpr_MD4_Init(&md4))
-		return NULL;
-	if (!winpr_MD4_Update(&md4, (BYTE*) Password, (size_t) PasswordLength))
-		return NULL;
-	if (!winpr_MD4_Final(&md4, NtHash, WINPR_MD4_DIGEST_LENGTH))
-		return NULL;
+	if (!winpr_Digest(WINPR_MD_MD4, (BYTE*) Password, (size_t) PasswordLength, NtHash, WINPR_MD4_DIGEST_LENGTH))
+	{
+		if (allocate)
+		{
+			free(NtHash);
+			NtHash = NULL;
+		}
+	}
 
 	return NtHash;
 }
@@ -56,7 +58,7 @@ BYTE* NTOWFv1A(LPSTR Password, UINT32 PasswordLength, BYTE* NtHash)
 {
 	LPWSTR PasswordW = NULL;
 
-	if (!(PasswordW = (LPWSTR) malloc(PasswordLength * 2)))
+	if (!(PasswordW = (LPWSTR) calloc(PasswordLength, 2)))
 		return NULL;
 
 	MultiByteToWideChar(CP_ACP, 0, Password, PasswordLength, PasswordW, PasswordLength);
@@ -122,9 +124,9 @@ BYTE* NTOWFv2A(LPSTR Password, UINT32 PasswordLength, LPSTR User,
 	LPWSTR DomainW = NULL;
 	LPWSTR PasswordW = NULL;
 
-	UserW = (LPWSTR) malloc(UserLength * 2);
-	DomainW = (LPWSTR) malloc(DomainLength * 2);
-	PasswordW = (LPWSTR) malloc(PasswordLength * 2);
+	UserW = (LPWSTR) calloc(UserLength, 2);
+	DomainW = (LPWSTR) calloc(DomainLength, 2);
+	PasswordW = (LPWSTR) calloc(PasswordLength, 2);
 
 	if (!UserW || !DomainW || !PasswordW)
 		goto out_fail;
@@ -184,8 +186,8 @@ BYTE* NTOWFv2FromHashA(BYTE* NtHashV1, LPSTR User, UINT32 UserLength, LPSTR Doma
 	LPWSTR UserW = NULL;
 	LPWSTR DomainW = NULL;
 
-	UserW = (LPWSTR) malloc(UserLength * 2);
-	DomainW = (LPWSTR) malloc(DomainLength * 2);
+	UserW = (LPWSTR) calloc(UserLength, 2);
+	DomainW = (LPWSTR) calloc(DomainLength, 2);
 
 	if (!UserW || !DomainW)
 		goto out_fail;
